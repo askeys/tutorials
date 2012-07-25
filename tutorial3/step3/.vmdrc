@@ -1,0 +1,5 @@
+mol modstyle 0 0 Points 5.000000
+display projection Orthographic
+color Display Background iceblue
+axes location Off
+menu main on
