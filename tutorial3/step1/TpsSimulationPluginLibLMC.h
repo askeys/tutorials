@@ -14,15 +14,6 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-/*
- *  TpsTestRandomWalk.h
- *  tpsapi
- *
- *  Created by askeys on 6/11/09.
- *  Copyright 2009 __MyCompanyName__. All rights reserved.
- *
- */
-
 
 #ifndef TPSSIMULATIONPLUGINLIBLMC_H
 #define TPSSIMULATIONPLUGINLIBLMC_H
@@ -44,7 +35,7 @@ class TpsSimulationPluginLibLMC : public TpsSimulationPlugin
 {
 	public:	
 
-		//re-implemented:
+		//re-implemented from TpsSimulationPlugin:
         TpsSimulationPluginLibLMC(lmc::Simulation&);
 		void run(int);
 		void writeRestart(const char*);
@@ -52,12 +43,8 @@ class TpsSimulationPluginLibLMC : public TpsSimulationPlugin
 		void freeRestart(const char*);		
 		void copyRestart(const char*, const char*);		
 		double computeHamiltonian();
-        
-        //optional:
-		//void writeData(const char* filename, int mode=0); 
-        void invertVelocities();
-        
-        //extra:
+                
+        //extra helper functions specific to this plugin:
         int getDimensions();
         lmc::Simulation& getSimulation();
     

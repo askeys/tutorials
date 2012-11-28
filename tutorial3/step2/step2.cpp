@@ -14,9 +14,9 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-//c++ ising_nucleation.cpp ../step2/plugin/TpsSimulationPluginLibLMC.cpp -llmc -ltps
+//c++ -O3 ising_nucleation.cpp TpsSimulationPluginLibLMC.cpp -llmc -ltps
 
-#include "../step2/plugin/TpsSimulationPluginLibLMC.h"
+#include "TpsSimulationPluginLibLMC.h"
 #include <lmc/lmc.h>
 #include <cassert>
 #include <sstream>
@@ -43,8 +43,7 @@ class TpsOrderParameterNucleusSize : public TpsOrderParameter
             //nucleus size at the beginning of the trajectory:
             int n = evaluate(traj, 0);
             
-            //cerr << traj.getTimeslice(0).getFilename() << "\t" << traj.getSimulationPlugin().computeHamiltonian() << "\thA: " << n << endl;
-                        
+            //nucleus must be smaller than N=5 to be in basin A
             if (n < 5) {
                 return true;
             }
@@ -57,10 +56,9 @@ class TpsOrderParameterNucleusSize : public TpsOrderParameter
         {   
             //nucleus size at the end of the trajectory:
             int n = evaluate(traj, traj.getNumberOfTimeslices()-1);
-            
-            //cerr << traj.getTimeslice(traj.getNumberOfTimeslices()-1).getFilename() << "\t" << traj.getSimulationPlugin().computeHamiltonian() << "\thB: " << n << endl;
-            
-            if (n > 100) {
+                        
+            //nucleus must be larger than N=200 to be in basin B
+            if (n > 200) {
                 return true;
             }
             else {
@@ -124,74 +122,96 @@ class TpsOrderParameterNucleusSize : public TpsOrderParameter
 			}
             return nmax;
         }
+};
+
+
+//Define a class for visualizing trajectories:
+class MyTpsAlgorithm : public TpsAlgorithmTPS
+{
+    public: 
+        MyTpsAlgorithm(TpsTrajectoryEnsemble& t, 
+            TpsRNG& r, TpsOrderParameter& f, TpsInitializer& i)
+        :	TpsAlgorithmTPS(t, r, f, i)
+        {
+            _count = 0;
+        }
+        
+        //overwrite this function to visualize the path after every 10 steps:
+        void callbackOnTrialMoveAccepted()
+        {
+            if (_count++ % 10 == 0) {
+                ostringstream filename;
+                filename << "traj_" << _count++ << ".xyz";
+                lmc::VisualizerXYZ xyz(filename.str().c_str());
+
+                TpsTrajectory& traj = _trajectory_factory.getLastTrajectory();
+                TpsSimulationPluginLibLMC& simplugin 
+                    = safeDowncastToLibLMCPlugin(traj.getSimulationPlugin());
+                                    
+                for (int i=0; i<traj.getNumberOfTimeslices(); i++) {                    
+                    simplugin.readRestart(traj.getTimeslice(i).getFilename().c_str());
+                    xyz.visualize(simplugin.getSimulation());
+                }
+            }        
+        }
+        
+    private:
+        int _count;
 
 };
 
-int NEQUIL=20;
-int LTRAJ = 100;
-int STEP = 1;
-int NTRAJ = 1000;
-
 int main(int argc, char** argv)
 {
+    //Initialize simulation engine:
     LatticeSquare lattice(L*L);
-    RandomNumberGenerator48 rng48;
-    
+    RandomNumberGenerator48 rng48;    
     std::vector<double> s0(L*L, -1.0);
     SimulationIsingModel ising(lattice, rng48);
-    //ising.setNMovesPerCycle(10);
     ising.setSpins(s0);
     ising.setBeta(1.0/2.0);
     ising.setField(1.5);
     
+    //Plug engine into TPS framework:
     TpsSimulationPluginLibLMC sim(ising);
     
-	TpsTrajectoryUniformStep traj(sim, LTRAJ, STEP);
+    //Declare the type of trajectory: (100 steps total separated by 1 MC cycle) 
+    int trajectory_length = 100;
+    int step_size = 1;
+	TpsTrajectoryUniformStep traj(sim, trajectory_length, step_size);
+
+    //A class to get the first trajectory (just wait until an event happens) 
 	TpsInitializerBruteForce init;
+
+    //A class to hold the ensemble of reactive trajectories (TPE) 
 	TpsTrajectoryEnsemble tpe(traj, 0, false);
 
+    //A class to compute the order parameter and define different basins
     TpsOrderParameterNucleusSize op;
-	TpsRNG48 rng(1, 2, 3);    
+	
+    //Random number generator for TPS
+    TpsRNG48 rng(1, 2, 3);    
     
+    //Initialize the first trajectory:
 	cerr << "Initializing...\n";
-    //TpsAlgorithmTPS tps(tpe, rng, op, init);
-    TpsAlgorithmTPS tps(tpe, rng, op, init);
+    MyTpsAlgorithm tps(tpe, rng, op, init);
 	cerr << "Sampling...\n";
 	
+    //Do shooting moves and shifting moves:
 	TpsTrialMoveShotForward fshot;
 	TpsTrialMoveShotBackward bshot;	
-    TpsTrialMoveShift shift(0, LTRAJ, STEP);
+    TpsTrialMoveShift shift(0, trajectory_length, step_size);
     
 	tps.addTrialMove(fshot, 0.5);
 	tps.addTrialMove(bshot, 0.5);
     tps.addTrialMove(shift, 1.0);
-
-    //********new:**************
     
-    TpsAnalysisCommitter committer(op, LTRAJ/5);
-    committer.setUseShortcut(true);
-    TpsAnalysisTransitionStates tse(committer, TpsAnalysisTransitionStates::STEPWISE);
-    tse.setAlpha(2.0);
-    tse.setNmax(50);
-    
-    lmc::VisualizerXYZ xyz("transition_states.xyz");
-    
-	for (int i=0; i<NTRAJ; i++) {
+    //Do path samping:
+    int number_of_trajectories = 100;
+	for (int i=0; i<number_of_trajectories; i++) {
 		cout << i << "\n";
 		tps.doStep();
         //trajectories are created in order, starting with index 0;
         //we can erase the old ones to save memory
-        
-        if (i%50 == 0) {
-            tse.analyze(tpe.getLastTrajectory());
-            std::vector<TpsTimeslice>& ts = tse.getTransitionStates();
-            cerr << "found " << ts.size() << " transition states\n";
-            for (int j=0; j<ts.size(); j++) {
-                sim.readRestart(ts[j].getFilename().c_str());
-                xyz.visualize(ising);
-            }
-            ts.clear();
-        }
         tpe.eraseTrajectories(0, tpe.getLastTrajectory().getID()-2);
     }
 }

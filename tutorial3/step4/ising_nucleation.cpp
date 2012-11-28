@@ -170,11 +170,8 @@ int main(int argc, char** argv)
     
     TpsAnalysisCommitter committer(op, LTRAJ/5);
     committer.setUseShortcut(true);
-    TpsAnalysisTransitionStates tse(committer, TpsAnalysisTransitionStates::STEPWISE);
-    tse.setAlpha(2.0);
-    tse.setNmax(50);
-    
-    lmc::VisualizerXYZ xyz("transition_states.xyz");
+    committer.setBinSize(1.0);
+    committer.setOutputInterval(1);
     
 	for (int i=0; i<NTRAJ; i++) {
 		cout << i << "\n";
@@ -182,15 +179,9 @@ int main(int argc, char** argv)
         //trajectories are created in order, starting with index 0;
         //we can erase the old ones to save memory
         
-        if (i%50 == 0) {
-            tse.analyze(tpe.getLastTrajectory());
-            std::vector<TpsTimeslice>& ts = tse.getTransitionStates();
-            cerr << "found " << ts.size() << " transition states\n";
-            for (int j=0; j<ts.size(); j++) {
-                sim.readRestart(ts[j].getFilename().c_str());
-                xyz.visualize(ising);
-            }
-            ts.clear();
+        if (i%50 == 0) {            
+            cout << "Computing committer...\n";
+            committer.analyze(tpe.getLastTrajectory());
         }
         tpe.eraseTrajectories(0, tpe.getLastTrajectory().getID()-2);
     }

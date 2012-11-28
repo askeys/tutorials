@@ -14,14 +14,6 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-/*
- *  TpsSimulationPluginLibLMC.cpp
- *  tpsapi
- *
- *  Created by askeys on 6/11/09.
- *  Copyright 2009 __MyCompanyName__. All rights reserved.
- *
- */
 
 #include "TpsSimulationPluginLibLMC.h"
 #include <iostream>
@@ -31,11 +23,6 @@
 TpsSimulationPluginLibLMC::TpsSimulationPluginLibLMC(lmc::Simulation& sim)
     : _sim(sim)
 {	
-}
-
-void TpsSimulationPluginLibLMC::invertVelocities()
-{
-    //do nothing...
 }
 
 void TpsSimulationPluginLibLMC::run(int nsteps)
@@ -98,6 +85,5 @@ TpsSimulationPluginLibLMC& safeDowncastToLibLMCPlugin(TpsSimulationPlugin& sim)
 		std::cerr << e.what() << std::endl;
 		int cast_to_LibLMC_simulation = 0;
 		assert(cast_to_LibLMC_simulation);
-        //throw 
 	}
 }
