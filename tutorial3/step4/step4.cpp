@@ -57,8 +57,8 @@ class TpsOrderParameterNucleusSize : public TpsOrderParameter
             //nucleus size at the end of the trajectory:
             int n = evaluate(traj, traj.getNumberOfTimeslices()-1);
                         
-            //nucleus must be larger than N=200 to be in basin B
-            if (n > 200) {
+            //nucleus must be larger than N=100 to be in basin B
+            if (n > 100) {
                 return true;
             }
             else {
